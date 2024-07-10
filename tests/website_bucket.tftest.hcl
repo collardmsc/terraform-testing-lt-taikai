@@ -6,14 +6,14 @@ run "setup_tests" {
 }
 
 # Apply run block to create the bucket
-run "create_bucket" {
+run "make_bucket" {
   variables {
-    bucket_name = "${run.setup_tests.bucket_prefix}-aws-s3-website-test"
+    bucket_name = "${run.setup_tests.bucket_prefix}-terraform-test-lt"
   }
 
   # Check that the bucket name is correct
   assert {
-    condition     = aws_s3_bucket.s3_bucket.bucket == "${run.setup_tests.bucket_prefix}-aws-s3-website-test"
+    condition = aws_s3_bucket.s3_bucket.bucket == "${run.setup_tests.bucket_prefix}-terraform-test-lt"
     error_message = "Invalid bucket name"
   }
 
@@ -23,9 +23,26 @@ run "create_bucket" {
     error_message = "Invalid eTag for index.html"
   }
 
-  # Check error.html hash matches
+   # Check error.html hash matches
   assert {
     condition     = aws_s3_object.error.etag == filemd5("./www/error.html")
     error_message = "Invalid eTag for error.html"
+  }
+}
+
+run "website_returns_200" {
+  command = plan
+  
+  module {
+    source = "./tests/final"
+  }
+
+  variables {
+    endpoint = run.make_bucket.website_endpoint
+  }
+
+  assert {
+    condition = data.http.index.status_code == 200
+    error_message = "Invalid HTTP status code"
   }
 }
